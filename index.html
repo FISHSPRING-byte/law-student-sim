@@ -277,6 +277,16 @@
   </div>
 
 <script>
+  // 开学剧情：固定出现在每局最开头，不计入 8 个随机事件
+  const INTRO_EVENT = {
+    text: '开学第一天，你拖着行李箱站在法学院门口。你为什么要学法律？',
+    options: [
+      { text: '为了捍卫公平正义！', result: '你立志成为顶尖律师，心中燃起理想的火焰。', score: 10, stress: 15 },
+      { text: '家里让报的，混个文凭就行', result: '你叹了口气，先混着吧，轻松一点也挺好。', score: -5, stress: -10 },
+      { text: '为了和喜欢的人有共同语言', result: '你满脑子都是Ta的身影，对法学也多了几分热情。', affection: 20 }
+    ]
+  };
+
   // 事件池：共 20 个事件，每局随机抽 8 个，共 4 轮 8 个事件（每学期两次选择）。
   // 每个事件的选项数量和内容各不相同，选项字段：
   // text 按钮文案 / result 结果文案 / score、affection、intern、stress 属性变化 / quiz 触发课堂提问
@@ -485,6 +495,7 @@
       affection: 0,
       intern: 0,
       stress: 20, // 初始压力
+      introDone: false, // 开学剧情是否已过
       events: buildEvents(),
       idx: 0,
       over: false,
@@ -502,11 +513,12 @@
 
   // 渲染当前事件：根据事件内容动态生成选项按钮
   function renderEvent() {
-    const ev = state.events[state.idx];
+    const ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
     document.getElementById('event-text').textContent = ev.text;
-    document.getElementById('progress').textContent =
-      '第 ' + (Math.floor(state.idx / EVENTS_PER_ROUND) + 1) + ' / ' + TOTAL_ROUNDS +
-      ' 学期 · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND;
+    document.getElementById('progress').textContent = state.introDone
+      ? '第 ' + (Math.floor(state.idx / EVENTS_PER_ROUND) + 1) + ' / ' + TOTAL_ROUNDS +
+        ' 学期 · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND
+      : '开学';
 
     const result = document.getElementById('result-text');
     result.textContent = '';
@@ -566,7 +578,7 @@
   // 玩家选择某个选项（选项由事件内容动态生成）
   function choose(i) {
     if (!state || state.over) return;
-    const ev = state.events[state.idx];
+    const ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
     const opt = ev.options[i];
 
     // 禁用选项按钮防止连点
@@ -581,8 +593,8 @@
 
     const result = document.getElementById('result-text');
     result.textContent = opt.result + effectText(opt);
-    const net = (opt.score || 0) + (opt.affection || 0) + (opt.intern || 0) - (opt.stress || 0);
-    result.classList.add('show', net >= 0 ? 'good' : 'bad');
+    const bad = (opt.score || 0) < 0 || (opt.affection || 0) < 0;
+    result.classList.add('show', bad ? 'bad' : 'good');
 
     updateStats();
     bumpStat('score');
@@ -592,6 +604,13 @@
     if (state.stress >= 100) return endGame('stress');
     if (state.score === 100) return endGame('perfect');
     if (state.score === 0) return endGame('zero');
+
+    // 开学剧情：不计入随机事件，直接进入第一个学期
+    if (!state.introDone) {
+      state.introDone = true;
+      setTimeout(renderEvent, 1500);
+      return;
+    }
 
     // 上课类选项触发课堂提问
     if (opt.quiz) return startQuiz();
