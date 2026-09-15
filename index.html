@@ -53,6 +53,7 @@
   .stat-value.score { color: #5a67d8; }
   .stat-value.love { color: #e0538a; }
   .stat-value.intern { color: #f59f00; }
+  .stat-value.stress { color: #7048e8; }
   .stat-value.bump { animation: bump 0.35s ease; }
   @keyframes bump {
     0% { transform: scale(1); }
@@ -209,7 +210,7 @@
 <body>
   <div class="card">
     <h1>⚖️ 法学生模拟器</h1>
-    <p class="subtitle">上课、恋爱、实习——法学生的三条路线，你怎么选？</p>
+    <p class="subtitle">上课、恋爱、实习——法学生的三条路线，可别压力爆表！</p>
 
     <div class="stats">
       <div class="stat-box">
@@ -224,6 +225,10 @@
         <div class="stat-label">💼 实习经验</div>
         <div class="stat-value intern" id="intern">0</div>
       </div>
+      <div class="stat-box">
+        <div class="stat-label">🧠 压力</div>
+        <div class="stat-value stress" id="stress">0</div>
+      </div>
     </div>
 
     <p class="progress" id="progress"></p>
@@ -232,11 +237,8 @@
     <div id="game-area">
       <p class="event-text" id="event-text"></p>
       <p class="result-text" id="result-text"></p>
-      <div class="buttons" id="main-buttons">
-        <button class="btn btn-go" id="btn-go" onclick="choose('go')">📖 去上课</button>
-        <button class="btn btn-skip" id="btn-skip" onclick="choose('skip')">💕 逃课恋爱</button>
-        <button class="btn btn-intern" id="btn-intern" onclick="choose('intern')">💼 去实习</button>
-      </div>
+      <!-- 动态选项区：按事件内容生成选项按钮 -->
+      <div class="buttons column" id="option-buttons"></div>
 
       <!-- 课堂提问系统 -->
       <div id="quiz-area" style="display: none;">
@@ -275,74 +277,169 @@
   </div>
 
 <script>
-  // 事件池：每局随机抽 8 个事件，共 4 轮 8 个事件。
-  // 每个事件有三个选项：go（去上课）、skip（逃课恋爱）、intern（去实习）。
+  // 事件池：共 20 个事件，每局随机抽 8 个，共 4 轮 8 个事件（每学期两次选择）。
+  // 每个事件的选项数量和内容各不相同，选项字段：
+  // text 按钮文案 / result 结果文案 / score、affection、intern、stress 属性变化 / quiz 触发课堂提问
   const EVENT_POOL = [
     {
       text: '民法课点名，你去不去？',
-      go: '你冲进教室坐进前排，认真听完了整节课！成绩 +10',
-      skip: '你和对象在咖啡馆度过了一下午，成绩下滑……成绩 -10，对象好感 +10',
-      intern: '你溜去旁听了一场合同纠纷庭审，第一次见识真实的法庭！实习经验 +10，成绩 +5'
+      options: [
+        { text: '冲进教室坐前排', result: '你冲进教室坐进前排，认真听完整节课。', score: 6, stress: 8, quiz: true },
+        { text: '和对象去咖啡馆', result: '你们在咖啡馆聊了一下午，心情大好。', affection: 7, stress: -4 },
+        { text: '装病不去', result: '你在宿舍躺了一天，睡了个昏天黑地。', score: -2, stress: -14 }
+      ]
     },
     {
       text: '刑法案例研讨会，教授要抽人分析案情，你留不留？',
-      go: '你留下参加研讨会，认真听完了案例讨论！成绩 +10',
-      skip: '你偷偷溜走和对象看了一场电影。成绩 -10，对象好感 +10',
-      intern: '你跑去法院旁听了一场盗窃案审理，学到庭审实战技巧。实习经验 +10，成绩 +5'
+      options: [
+        { text: '留下认真听', result: '你留下认真听完整场案例讨论，还做了笔记。', score: 6, stress: 8, quiz: true },
+        { text: '溜走看电影', result: '你和对象看了一场电影，剧情比案例精彩。', affection: 7, stress: -5 },
+        { text: '去法院旁听庭审', result: '你跑到法院旁听了一场盗窃案审理。', intern: 7, stress: 10 }
+      ]
     },
     {
       text: '法律文书写作作业今晚截止，你写不写？',
-      go: '你挑灯夜战按时交上作业，老师给了好评！成绩 +10',
-      skip: '你陪对象逛街到深夜，作业忘得一干二净。成绩 -10，对象好感 +10',
-      intern: '你在律所帮律师装订卷宗、草拟文书，作业却只写了一半。实习经验 +10，成绩 +5'
+      options: [
+        { text: '挑灯夜战', result: '你熬到凌晨两点，作业总算写完交了。', score: 7, stress: 12 },
+        { text: '随便糊弄一篇', result: '你东拼西凑交了作业，心里有点虚。', score: 2, stress: 4 },
+        { text: '不写了，陪对象逛街', result: '逛街一时爽，作业火葬场，下周再说吧。', score: -3, affection: 8, stress: -6 }
+      ]
     },
     {
       text: '模拟法庭辩论队今晚集训，你去不去？',
-      go: '你在模拟法庭上慷慨陈词，队友都为你鼓掌！成绩 +10',
-      skip: '你和对象去吃了顿火锅，辩论技巧没练成。成绩 -10，对象好感 +10',
-      intern: '你到社区普法站当志愿者，给大爷大妈讲解防诈骗知识。实习经验 +10，成绩 +5'
+      options: [
+        { text: '参加集训', result: '你在模拟法庭上慷慨陈词，队友为你鼓掌。', score: 6, stress: 9, quiz: true },
+        { text: '和对象吃火锅', result: '你们吃了一顿热气腾腾的火锅，浑身舒畅。', affection: 7, stress: -5 },
+        { text: '去社区普法', result: '你给大爷大妈讲防诈骗知识，成就感满满。', intern: 7, stress: 6 }
+      ]
     },
     {
       text: '导师安排你去法院整理卷宗，你去不去？',
-      go: '你婉拒了整理卷宗，坚持去上完了专业课，笔记记得满满当当。成绩 +10',
-      skip: '你借口头疼，和对象去公园划船了。成绩 -10，对象好感 +10',
-      intern: '你在卷宗堆里泡了一天，实务经验大涨！实习经验 +10，成绩 +5'
+      options: [
+        { text: '去整理卷宗', result: '你在卷宗堆里泡了一天，腰酸背痛。', intern: 8, stress: 12 },
+        { text: '叫对象一起去帮忙', result: '两人边整理边聊天，效率意外地高。', affection: 7, intern: 5, stress: 4 },
+        { text: '婉拒，好好休息', result: '你在宿舍睡到自然醒，导师脸色有点难看。', score: -2, stress: -15 }
+      ]
     },
     {
       text: '宪法学讲座正在开讲，你去听吗？',
-      go: '你认真记了满满三页笔记，对宪法理解更深刻了！成绩 +10',
-      skip: '你和对象窝在宿舍追剧，讲座完全没听。成绩 -10，对象好感 +10',
-      intern: '你去政务服务中心见习，旁观了一场行政复议。实习经验 +10，成绩 +5'
+      options: [
+        { text: '去听讲座', result: '你认真记了三页笔记，收获不小。', score: 6, stress: 8, quiz: true },
+        { text: '和对象宿舍追剧', result: '你们窝在一起追完了一部剧。', affection: 6, stress: -5 },
+        { text: '去政务中心见习', result: '你旁观了一场行政复议，长了见识。', intern: 6, stress: 6 }
+      ]
     },
     {
       text: '图书馆期末自习打卡，你去不去？',
-      go: '你在图书馆复习了一整天，效率超高！成绩 +10',
-      skip: '你和对象骑车兜风，享受了大好春光。成绩 -10，对象好感 +10',
-      intern: '你在校法律援助工作站值班，接了两个咨询电话。实习经验 +10，成绩 +5'
+      options: [
+        { text: '复习一整天', result: '你在图书馆泡了一整天，效率超高。', score: 7, stress: 10 },
+        { text: '和对象骑车兜风', result: '你们骑车兜风，享受了大好春光。', affection: 7, stress: -6 },
+        { text: '宅宿舍躺平', result: '你瘫在宿舍刷了一天手机。', stress: -15 }
+      ]
     },
     {
       text: '法律援助中心周末值班，你去不去？',
-      go: '你把值班托给了学弟，自己去上了周末辅导课。成绩 +10',
-      skip: '你和对象去逛了展，值班名单上没你的名字。成绩 -10，对象好感 +10',
-      intern: '你帮一位大爷写了起诉状，成就感满满！实习经验 +10，成绩 +5'
+      options: [
+        { text: '去值班', result: '你帮一位大爷写了起诉状，成就感满满。', score: 4, intern: 7, stress: 10 },
+        { text: '叫对象一起去', result: '两个人一起值班，工作恋爱两不误。', affection: 7, intern: 5, stress: 3 },
+        { text: '拉室友一起去', result: '你和室友一起去值班，有人作伴不无聊。', intern: 6, stress: 5 },
+        { text: '不去', result: '你在宿舍睡到自然醒，值班名单上没你。', stress: -14 }
+      ]
     },
     {
       text: '律所暑期实习面试，你去不去？',
-      go: '你犹豫再三，还是放弃面试去上课，错过了这次机会。成绩 +10',
-      skip: '你和对象去水上乐园玩了一整天，错过了面试。成绩 -10，对象好感 +10',
-      intern: '你顺利通过面试，拿到了律所实习 offer！实习经验 +10，成绩 +5'
+      options: [
+        { text: '认真准备去面试', result: '你顺利通过面试，拿到律所实习 offer！', intern: 8, stress: 10 },
+        { text: '和对象去水上乐园', result: '你们玩了一整天，错过了面试也不后悔。', affection: 7, stress: -5 },
+        { text: '没准备好，去公园散心', result: '你在公园散步缓了缓，放弃了这次机会。', stress: -10 }
+      ]
     },
     {
       text: '法考辅导班冲刺课，你去不去？',
-      go: '你刷完了一套真题，正确率创新高！成绩 +10',
-      skip: '你和对象在奶茶店打了一下午游戏。成绩 -10，对象好感 +10',
-      intern: '你去了合作律所整理证据材料，提前感受办案节奏。实习经验 +10，成绩 +5'
+      options: [
+        { text: '刷一套真题', result: '你刷完一套真题，正确率还不错。', score: 7, stress: 11, quiz: true },
+        { text: '和对象打游戏', result: '你们在奶茶店打了一下午游戏。', affection: 6, stress: -6 },
+        { text: '给自己放个假', result: '你决定劳逸结合，在家休息。', stress: -15 }
+      ]
     },
     {
       text: '班级法学读书会分享，你参加吗？',
-      go: '你分享了对《论法的精神》的见解，同学刮目相看！成绩 +10',
-      skip: '你和对象去了livehouse，读书会现场缺了你。成绩 -10，对象好感 +10',
-      intern: '你参加了一场律所开放日，和合伙人聊了职业规划。实习经验 +10，成绩 +5'
+      options: [
+        { text: '认真准备分享', result: '你分享了对《论法的精神》的见解。', score: 6, stress: 8 },
+        { text: '和对象去 livehouse', result: '你们在现场蹦到腿软，烦恼全消。', affection: 8, stress: -4 },
+        { text: '不去，宅宿舍', result: '你在宿舍宅了一晚上。', stress: -14 }
+      ]
+    },
+    {
+      text: '期中考试周到了，复习计划怎么定？',
+      options: [
+        { text: '制定计划严格执行', result: '你按计划复习了一周，胸有成竹。', score: 7, stress: 10 },
+        { text: '边学边玩', result: '你学两小时玩一小时，进度堪忧。', score: 3, stress: 4 },
+        { text: '先玩几天再说', result: '你决定先放松，考前几天再冲刺。', stress: -8 }
+      ]
+    },
+    {
+      text: '和对象的纪念日到了，怎么过？',
+      options: [
+        { text: '精心准备惊喜', result: '你准备了一整天的惊喜，对象感动哭了。', affection: 9, stress: -6 },
+        { text: '送个敷衍的礼物', result: '你随手买了个礼物，对象有点失望。', affection: 3, stress: 2 },
+        { text: '太忙完全忘记了', result: '对象和你大吵了一架，冷战开始。', affection: -5, stress: 8 }
+      ]
+    },
+    {
+      text: '室友拉你通宵开黑，去不去？',
+      options: [
+        { text: '一起开黑', result: '你们玩到天亮，第二天上课睡着了。', score: -3, stress: -8 },
+        { text: '拒绝，早睡', result: '你十点就睡了，第二天神清气爽。', score: 2, stress: -10 }
+      ]
+    },
+    {
+      text: '律所发来短期实习邀请，去吗？',
+      options: [
+        { text: '去实习', result: '你在律所忙了一周，学到不少实务。', intern: 8, stress: 12 },
+        { text: '婉拒，专心上课', result: '你婉拒了邀请，专心跟完专业课。', score: 6, stress: 8, quiz: true },
+        { text: '和对象商量后拒绝', result: '对象劝你别太累，你们过了一个轻松的周末。', affection: 6, stress: 2 }
+      ]
+    },
+    {
+      text: '期末论文选题，选哪个方向？',
+      options: [
+        { text: '选热门题目', result: '题目现成资料多，写得轻松。', score: 5, stress: 6 },
+        { text: '选冷门题目挑战', result: '你啃了半个月文献，头发掉了不少。', score: 7, stress: 12 },
+        { text: '让对象帮你参谋', result: '对象帮你查了一堆资料，还端茶倒水。', score: 3, affection: 6, stress: 4 }
+      ]
+    },
+    {
+      text: '社团拉你策划普法活动，接不接？',
+      options: [
+        { text: '接下活动', result: '你忙前忙后，活动办得挺成功。', intern: 6, stress: 10 },
+        { text: '婉拒，陪对象', result: '你婉拒了社团，把时间留给了对象。', affection: 6, stress: -4 },
+        { text: '婉拒，好好休息', result: '你婉拒了社团，好好休息了一周。', stress: -14 }
+      ]
+    },
+    {
+      text: '对象最近情绪低落，约你谈谈心',
+      options: [
+        { text: '放下手头的事去陪', result: '你陪对象聊到深夜，两人和好如初。', affection: 8, stress: -5 },
+        { text: '说太忙，改天再聊', result: '对象摔门而去，你们陷入了冷战。', affection: -5, stress: 8 },
+        { text: '拉对象去图书馆自习', result: '你们一起自习，效率意外地高。', score: 4, affection: 4, stress: 2 }
+      ]
+    },
+    {
+      text: '法律职业规划讲座，你去听吗？',
+      options: [
+        { text: '去听讲座', result: '你记了满满两页职业规划笔记。', score: 5, intern: 3, stress: 7 },
+        { text: '和对象去逛展', result: '你们看了一场有趣的展览。', affection: 7, stress: -5 },
+        { text: '去律所开放日', result: '你和合伙人聊了职业规划，受益匪浅。', intern: 7, stress: 5 }
+      ]
+    },
+    {
+      text: '考试前一天晚上，你打算？',
+      options: [
+        { text: '通宵复习', result: '你复习到凌晨四点，眼睛都快睁不开了。', score: 6, stress: 15 },
+        { text: '早睡养精神', result: '你九点就睡了，养足精神迎接考试。', score: 3, stress: -10 },
+        { text: '和对象散步放松', result: '你们在操场散步聊天，心情平静。', affection: 6, stress: -8 }
+      ]
     }
   ];
 
@@ -376,7 +473,7 @@
     return a;
   }
 
-  // 从事件池随机抽 8 个事件
+  // 从 20 个事件池随机抽 8 个事件
   function buildEvents() {
     return shuffle(EVENT_POOL).slice(0, 8);
   }
@@ -387,6 +484,7 @@
       score: 30 + Math.floor(Math.random() * 51), // 初始成绩随机 30~80
       affection: 0,
       intern: 0,
+      stress: 20, // 初始压力
       events: buildEvents(),
       idx: 0,
       over: false,
@@ -397,86 +495,106 @@
     document.getElementById('end-screen').classList.remove('active');
     document.getElementById('end-choice').style.display = 'none';
     document.getElementById('quiz-area').style.display = 'none';
-    document.getElementById('main-buttons').style.display = 'flex';
+    document.getElementById('option-buttons').style.display = 'flex';
     document.getElementById('game-area').style.display = 'block';
     renderEvent();
   }
 
-  // 渲染当前事件
+  // 渲染当前事件：根据事件内容动态生成选项按钮
   function renderEvent() {
     const ev = state.events[state.idx];
     document.getElementById('event-text').textContent = ev.text;
     document.getElementById('progress').textContent =
       '第 ' + (Math.floor(state.idx / EVENTS_PER_ROUND) + 1) + ' / ' + TOTAL_ROUNDS +
-      ' 轮 · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND;
+      ' 学期 · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND;
 
     const result = document.getElementById('result-text');
     result.textContent = '';
     result.classList.remove('show', 'good', 'bad');
 
+    const box = document.getElementById('option-buttons');
+    box.innerHTML = '';
+    ev.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn ' + optionBtnClass(opt);
+      btn.textContent = opt.text;
+      btn.onclick = function () { choose(i); };
+      box.appendChild(btn);
+    });
+
     document.getElementById('quiz-area').style.display = 'none';
-    document.getElementById('main-buttons').style.display = 'flex';
-    setButtonsEnabled(true);
     updateStats();
   }
 
-  // 更新成绩、好感与实习显示（成绩限制在 0~100）
+  // 更新成绩、好感、实习与压力显示（成绩限制在 0~100，压力最低 0）
   function updateStats() {
     state.score = Math.max(0, Math.min(100, state.score));
+    state.stress = Math.max(0, state.stress);
     document.getElementById('score').textContent = state.score;
     document.getElementById('affection').textContent = state.affection;
     document.getElementById('intern').textContent = state.intern;
+    document.getElementById('stress').textContent = state.stress;
   }
 
   // 数字跳动动画
-  function bumpScore() {
-    const el = document.getElementById('score');
+  function bumpStat(id) {
+    const el = document.getElementById(id);
     el.classList.remove('bump');
     void el.offsetWidth; // 重启动画
     el.classList.add('bump');
   }
 
-  function setButtonsEnabled(enabled) {
-    document.getElementById('btn-go').disabled = !enabled;
-    document.getElementById('btn-skip').disabled = !enabled;
-    document.getElementById('btn-intern').disabled = !enabled;
+  // 根据选项效果自动生成属性变化后缀
+  function effectText(opt) {
+    const parts = [];
+    if (opt.score) parts.push('成绩 ' + (opt.score > 0 ? '+' : '') + opt.score);
+    if (opt.affection) parts.push('好感 ' + (opt.affection > 0 ? '+' : '') + opt.affection);
+    if (opt.intern) parts.push('实习 ' + (opt.intern > 0 ? '+' : '') + opt.intern);
+    if (opt.stress) parts.push('压力 ' + (opt.stress > 0 ? '+' : '') + opt.stress);
+    return parts.length ? '（' + parts.join(' · ') + '）' : '';
   }
 
-  // 玩家做出选择：go 去上课 / skip 逃课恋爱 / intern 去实习
-  function choose(type) {
+  // 根据选项主要效果决定按钮配色
+  function optionBtnClass(opt) {
+    if (opt.stress < 0 && !opt.score && !opt.affection && !opt.intern) return 'btn-quiz-no'; // 休息类：灰
+    if (opt.affection > 0) return 'btn-skip';   // 恋爱类：粉
+    if (opt.intern > 0) return 'btn-intern';    // 实习类：橙
+    if (opt.score > 0) return 'btn-go';         // 学习类：蓝
+    return 'btn-quiz-no';
+  }
+
+  // 玩家选择某个选项（选项由事件内容动态生成）
+  function choose(i) {
     if (!state || state.over) return;
     const ev = state.events[state.idx];
-    setButtonsEnabled(false);
+    const opt = ev.options[i];
+
+    // 禁用选项按钮防止连点
+    document.getElementById('option-buttons').querySelectorAll('button')
+      .forEach(b => { b.disabled = true; });
+
+    // 应用属性变化
+    state.score = Math.max(0, Math.min(100, state.score + (opt.score || 0)));
+    state.affection = Math.max(0, state.affection + (opt.affection || 0));
+    state.intern = Math.max(0, state.intern + (opt.intern || 0));
+    state.stress = Math.max(0, state.stress + (opt.stress || 0));
 
     const result = document.getElementById('result-text');
-    if (type === 'go') {
-      state.score = Math.min(100, state.score + 10);
-      result.textContent = ev.go;
-      result.classList.add('show', 'good');
-      updateStats();
-      bumpScore();
-      // 满分立即结算
-      if (state.score === 100) return endGame('perfect');
-      // 去上课触发课堂提问
-      return startQuiz();
-    } else if (type === 'skip') {
-      state.score = Math.max(0, state.score - 10);
-      state.affection += 10;
-      result.textContent = ev.skip;
-      result.classList.add('show', 'bad');
-    } else {
-      state.score = Math.max(0, Math.min(100, state.score + 5));
-      state.intern += 10;
-      result.textContent = ev.intern;
-      result.classList.add('show', 'good');
-    }
+    result.textContent = opt.result + effectText(opt);
+    const net = (opt.score || 0) + (opt.affection || 0) + (opt.intern || 0) - (opt.stress || 0);
+    result.classList.add('show', net >= 0 ? 'good' : 'bad');
 
     updateStats();
-    bumpScore();
+    bumpStat('score');
+    bumpStat('stress');
 
-    // 满分 / 零分立即结算
+    // 压力爆表 / 满分 / 零分立即结算
+    if (state.stress >= 100) return endGame('stress');
     if (state.score === 100) return endGame('perfect');
     if (state.score === 0) return endGame('zero');
+
+    // 上课类选项触发课堂提问
+    if (opt.quiz) return startQuiz();
 
     nextEvent();
   }
@@ -505,7 +623,7 @@
   function startQuiz() {
     const q = nextQuizQuestion();
     state.quiz = q;
-    document.getElementById('main-buttons').style.display = 'none';
+    document.getElementById('option-buttons').style.display = 'none';
     document.getElementById('quiz-area').style.display = 'block';
     document.getElementById('quiz-text').textContent = '🙋 老师突然提问：' + q.q;
     document.getElementById('quiz-choose-btns').style.display = 'flex';
@@ -550,17 +668,18 @@
     }
   }
 
-  // 选择答案：答对成绩加成更多（+20），答错小扣分（净得 +5）
+  // 选择答案：答对成绩额外加成，答错小扣分并增加压力
   function answerQuiz(i) {
     if (!state.quiz) return;
     const result = document.getElementById('result-text');
     if (i === state.quiz.c) {
-      state.score = Math.min(100, state.score + 10);
-      result.textContent = '回答正确！老师赞不绝口，成绩 +20（答对加成更多！）';
+      state.score = Math.min(100, state.score + 6);
+      result.textContent = '回答正确！老师赞不绝口，成绩额外 +6！';
       result.classList.add('show', 'good');
     } else {
-      state.score = Math.max(0, state.score - 5);
-      result.textContent = '回答错误……同学们窃窃私语，成绩 +5。';
+      state.score = Math.max(0, state.score - 3);
+      state.stress = Math.max(0, state.stress + 4);
+      result.textContent = '回答错误……同学们窃窃私语。成绩 -3，压力 +4。';
       result.classList.add('show', 'bad');
     }
     endQuiz();
@@ -570,10 +689,12 @@
   function endQuiz() {
     state.quiz = null;
     document.getElementById('quiz-area').style.display = 'none';
-    document.getElementById('main-buttons').style.display = 'flex';
+    document.getElementById('option-buttons').style.display = 'flex';
     updateStats();
-    bumpScore();
+    bumpStat('score');
+    bumpStat('stress');
 
+    if (state.stress >= 100) return endGame('stress');
     if (state.score === 100) return endGame('perfect');
     if (state.score === 0) return endGame('zero');
 
@@ -581,7 +702,7 @@
   }
 
   // 结算：计算达成的结局
-  // 💍 结婚：对象好感 ≥ 50；🎓 保研：成绩 ≥ 80；💼 工作：成绩 ≥ 50 且 实习 ≥ 20
+  // 💍 结婚：对象好感 ≥ 50；🎓 保研：成绩 ≥ 80；💼 工作：成绩 ≥ 50 且 实习 ≥ 20；🤯 压力爆表：压力 ≥ 100
   // 保研与就业互斥：两者条件都满足时，由玩家二选一。
   function endGame(type) {
     state.over = true;
@@ -589,11 +710,22 @@
     const screen = document.getElementById('end-screen');
     screen.classList.add('active');
 
-    const canBaoYan = state.score >= 80;
-    const canJob = state.score >= 50 && state.intern >= 20;
-
     const emoji = document.getElementById('end-emoji');
     const title = document.getElementById('end-title');
+    const sub = document.getElementById('end-sub');
+    document.getElementById('end-choice').style.display = 'none';
+
+    // 压力爆表：特殊坏结局
+    if (type === 'stress') {
+      emoji.textContent = '🤯';
+      title.textContent = '压力爆表！你被压垮了……';
+      sub.innerHTML = statsHtml() +
+        '<p class="bad-ending">😵 压力达到 100，学期还没结束你就撑不住了。好好休息，别把自己逼太紧！</p>';
+      return;
+    }
+
+    const canBaoYan = state.score >= 80;
+    const canJob = state.score >= 50 && state.intern >= 20;
 
     if (type === 'perfect') {
       emoji.textContent = '🎉';
@@ -607,13 +739,11 @@
     }
 
     const choiceBox = document.getElementById('end-choice');
-    const sub = document.getElementById('end-sub');
     if (canBaoYan && canJob) {
       // 两条路都满足，等待玩家选择
       choiceBox.style.display = 'block';
       sub.innerHTML = statsHtml();
     } else {
-      choiceBox.style.display = 'none';
       showFinalEnding(canBaoYan ? 'baoyan' : (canJob ? 'job' : null));
     }
   }
@@ -626,7 +756,7 @@
 
   // 属性统计文案
   function statsHtml() {
-    return '成绩：<b>' + state.score + '</b> 分 · 对象好感：<b>' + state.affection + '</b> · 实习经验：<b>' + state.intern + '</b>';
+    return '成绩：<b>' + state.score + '</b> 分 · 对象好感：<b>' + state.affection + '</b> · 实习经验：<b>' + state.intern + '</b> · 压力：<b>' + state.stress + '</b>';
   }
 
   // 展示最终结局（保研 / 就业只会二选一）
