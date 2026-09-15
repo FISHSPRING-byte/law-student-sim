@@ -106,6 +106,43 @@
     background: linear-gradient(135deg, #f783ac, #e0538a);
     box-shadow: 0 6px 16px rgba(224, 83, 138, 0.35);
   }
+  .btn-intern {
+    background: linear-gradient(135deg, #ffc078, #f59f00);
+    box-shadow: 0 6px 16px rgba(245, 159, 0, 0.35);
+  }
+  .btn-quiz {
+    background: linear-gradient(135deg, #74c0fc, #339af0);
+    box-shadow: 0 6px 16px rgba(51, 154, 240, 0.35);
+  }
+  .btn-quiz-no {
+    background: linear-gradient(135deg, #adb5bd, #868e96);
+    box-shadow: 0 6px 16px rgba(134, 142, 150, 0.35);
+  }
+  .buttons.column { flex-direction: column; }
+  .buttons.column .btn {
+    flex: none;
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* 课堂提问区域 */
+  .quiz-text {
+    font-size: 17px;
+    color: #444;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  /* 结局二选一 */
+  .end-choice { margin-bottom: 18px; }
+  .end-choice-text {
+    color: #777;
+    font-size: 15px;
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
   .btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
@@ -172,7 +209,7 @@
 <body>
   <div class="card">
     <h1>⚖️ 法学生模拟器</h1>
-    <p class="subtitle">读万卷书，行万里路——或者逃课去恋爱？</p>
+    <p class="subtitle">上课、恋爱、实习——法学生的三条路线，你怎么选？</p>
 
     <div class="stats">
       <div class="stat-box">
@@ -195,10 +232,26 @@
     <div id="game-area">
       <p class="event-text" id="event-text"></p>
       <p class="result-text" id="result-text"></p>
-      <div class="buttons">
+      <div class="buttons" id="main-buttons">
         <button class="btn btn-go" id="btn-go" onclick="choose('go')">📖 去上课</button>
         <button class="btn btn-skip" id="btn-skip" onclick="choose('skip')">💕 逃课恋爱</button>
+        <button class="btn btn-intern" id="btn-intern" onclick="choose('intern')">💼 去实习</button>
       </div>
+
+      <!-- 课堂提问系统 -->
+      <div id="quiz-area" style="display: none;">
+        <p class="quiz-text" id="quiz-text"></p>
+        <div class="buttons" id="quiz-choose-btns">
+          <button class="btn btn-go" onclick="raiseHand()">🙋 主动回答</button>
+          <button class="btn btn-quiz-no" onclick="noHand()">🙊 不举手</button>
+        </div>
+        <div class="buttons column" id="quiz-answer-btns" style="display: none;">
+          <button class="btn btn-quiz" id="btn-a" onclick="answerQuiz(0)"></button>
+          <button class="btn btn-quiz" id="btn-b" onclick="answerQuiz(1)"></button>
+          <button class="btn btn-quiz" id="btn-c" onclick="answerQuiz(2)"></button>
+        </div>
+      </div>
+
       <button class="btn-restart subtle" onclick="initGame()">↻ 重新开始</button>
     </div>
 
@@ -206,73 +259,105 @@
     <div class="end-screen" id="end-screen">
       <div class="end-emoji" id="end-emoji"></div>
       <div class="end-title" id="end-title"></div>
+
+      <!-- 保研 / 就业 二选一 -->
+      <div class="end-choice" id="end-choice" style="display: none;">
+        <p class="end-choice-text">🎯 保研和就业的条件你都满足了！但鱼与熊掌不可兼得，请选择你的未来：</p>
+        <div class="buttons">
+          <button class="btn btn-go" onclick="pickEnding('baoyan')">🎓 选择保研</button>
+          <button class="btn btn-intern" onclick="pickEnding('job')">💼 选择就业</button>
+        </div>
+      </div>
+
       <p class="end-sub" id="end-sub"></p>
       <button class="btn-restart" onclick="initGame()">↻ 重新开始</button>
     </div>
   </div>
 
 <script>
-  // 事件池：每一轮随机依次出现两个事件，共 4 轮 8 个事件。
-  // 标记 intern 的事件为实习类事件，选择"去上课"可额外获得实习经验。
+  // 事件池：每局随机抽 8 个事件，共 4 轮 8 个事件。
+  // 每个事件有三个选项：go（去上课）、skip（逃课恋爱）、intern（去实习）。
   const EVENT_POOL = [
     {
       text: '民法课点名，你去不去？',
-      go: '你冲进教室坐进前排，还答对了教授的提问！成绩 +10',
-      skip: '你和对象在咖啡馆度过了一下午，成绩下滑……成绩 -10，对象好感 +10'
+      go: '你冲进教室坐进前排，认真听完了整节课！成绩 +10',
+      skip: '你和对象在咖啡馆度过了一下午，成绩下滑……成绩 -10，对象好感 +10',
+      intern: '你溜去旁听了一场合同纠纷庭审，第一次见识真实的法庭！实习经验 +10，成绩 +5'
     },
     {
       text: '刑法案例研讨会，教授要抽人分析案情，你留不留？',
-      go: '你条理清晰地分析了共同犯罪问题，赢得一片掌声！成绩 +10',
-      skip: '你偷偷溜走和对象看了一场电影。成绩 -10，对象好感 +10'
+      go: '你留下参加研讨会，认真听完了案例讨论！成绩 +10',
+      skip: '你偷偷溜走和对象看了一场电影。成绩 -10，对象好感 +10',
+      intern: '你跑去法院旁听了一场盗窃案审理，学到庭审实战技巧。实习经验 +10，成绩 +5'
     },
     {
       text: '法律文书写作作业今晚截止，你写不写？',
       go: '你挑灯夜战按时交上作业，老师给了好评！成绩 +10',
-      skip: '你陪对象逛街到深夜，作业忘得一干二净。成绩 -10，对象好感 +10'
+      skip: '你陪对象逛街到深夜，作业忘得一干二净。成绩 -10，对象好感 +10',
+      intern: '你在律所帮律师装订卷宗、草拟文书，作业却只写了一半。实习经验 +10，成绩 +5'
     },
     {
       text: '模拟法庭辩论队今晚集训，你去不去？',
       go: '你在模拟法庭上慷慨陈词，队友都为你鼓掌！成绩 +10',
-      skip: '你和对象去吃了顿火锅，辩论技巧没练成。成绩 -10，对象好感 +10'
+      skip: '你和对象去吃了顿火锅，辩论技巧没练成。成绩 -10，对象好感 +10',
+      intern: '你到社区普法站当志愿者，给大爷大妈讲解防诈骗知识。实习经验 +10，成绩 +5'
     },
     {
       text: '导师安排你去法院整理卷宗，你去不去？',
-      intern: true,
-      go: '你在卷宗堆里泡了一天，实务经验大涨！成绩 +10，实习经验 +10',
-      skip: '你借口头疼，和对象去公园划船了。成绩 -10，对象好感 +10'
+      go: '你婉拒了整理卷宗，坚持去上完了专业课，笔记记得满满当当。成绩 +10',
+      skip: '你借口头疼，和对象去公园划船了。成绩 -10，对象好感 +10',
+      intern: '你在卷宗堆里泡了一天，实务经验大涨！实习经验 +10，成绩 +5'
     },
     {
       text: '宪法学讲座正在开讲，你去听吗？',
       go: '你认真记了满满三页笔记，对宪法理解更深刻了！成绩 +10',
-      skip: '你和对象窝在宿舍追剧，讲座完全没听。成绩 -10，对象好感 +10'
+      skip: '你和对象窝在宿舍追剧，讲座完全没听。成绩 -10，对象好感 +10',
+      intern: '你去政务服务中心见习，旁观了一场行政复议。实习经验 +10，成绩 +5'
     },
     {
       text: '图书馆期末自习打卡，你去不去？',
       go: '你在图书馆复习了一整天，效率超高！成绩 +10',
-      skip: '你和对象骑车兜风，享受了大好春光。成绩 -10，对象好感 +10'
+      skip: '你和对象骑车兜风，享受了大好春光。成绩 -10，对象好感 +10',
+      intern: '你在校法律援助工作站值班，接了两个咨询电话。实习经验 +10，成绩 +5'
     },
     {
       text: '法律援助中心周末值班，你去不去？',
-      intern: true,
-      go: '你帮一位大爷写了起诉状，成就感满满！成绩 +10，实习经验 +10',
-      skip: '你和对象去逛了展，值班名单上没你的名字。成绩 -10，对象好感 +10'
+      go: '你把值班托给了学弟，自己去上了周末辅导课。成绩 +10',
+      skip: '你和对象去逛了展，值班名单上没你的名字。成绩 -10，对象好感 +10',
+      intern: '你帮一位大爷写了起诉状，成就感满满！实习经验 +10，成绩 +5'
     },
     {
       text: '律所暑期实习面试，你去不去？',
-      intern: true,
-      go: '你顺利通过面试，拿到了律所实习 offer！成绩 +10，实习经验 +10',
-      skip: '你和对象去水上乐园玩了一整天，错过了面试。成绩 -10，对象好感 +10'
+      go: '你犹豫再三，还是放弃面试去上课，错过了这次机会。成绩 +10',
+      skip: '你和对象去水上乐园玩了一整天，错过了面试。成绩 -10，对象好感 +10',
+      intern: '你顺利通过面试，拿到了律所实习 offer！实习经验 +10，成绩 +5'
     },
     {
       text: '法考辅导班冲刺课，你去不去？',
       go: '你刷完了一套真题，正确率创新高！成绩 +10',
-      skip: '你和对象在奶茶店打了一下午游戏。成绩 -10，对象好感 +10'
+      skip: '你和对象在奶茶店打了一下午游戏。成绩 -10，对象好感 +10',
+      intern: '你去了合作律所整理证据材料，提前感受办案节奏。实习经验 +10，成绩 +5'
     },
     {
       text: '班级法学读书会分享，你参加吗？',
       go: '你分享了对《论法的精神》的见解，同学刮目相看！成绩 +10',
-      skip: '你和对象去了livehouse，读书会现场缺了你。成绩 -10，对象好感 +10'
+      skip: '你和对象去了livehouse，读书会现场缺了你。成绩 -10，对象好感 +10',
+      intern: '你参加了一场律所开放日，和合伙人聊了职业规划。实习经验 +10，成绩 +5'
     }
+  ];
+
+  // 法考题库：上课时老师随机提问，o 为三个选项，c 为正确答案下标
+  const QUIZ_POOL = [
+    { q: '我国现行宪法是哪一年颁布的？', o: ['1954 年', '1978 年', '1982 年'], c: 2 },
+    { q: '我国《民法典》自哪一年起施行？', o: ['2020 年', '2021 年', '2022 年'], c: 1 },
+    { q: '下列哪一项属于民法上的"无因管理"？', o: ['拾得遗失物', '无义务为他人管理事务', '向他人赠与财产'], c: 1 },
+    { q: '已满多少周岁的人犯罪，应当负刑事责任？', o: ['14 周岁', '16 周岁', '18 周岁'], c: 1 },
+    { q: '下列哪一项属于知识产权？', o: ['所有权', '抵押权', '著作权'], c: 2 },
+    { q: '我国最高国家权力机关是？', o: ['国务院', '全国人民代表大会', '最高人民法院'], c: 1 },
+    { q: '合同要约生效的时间是？', o: ['发出时', '到达受要约人时', '对方承诺时'], c: 1 },
+    { q: '刑事公诉案件中，证明被告人有罪的举证责任由谁承担？', o: ['被告人', '辩护律师', '人民检察院'], c: 2 },
+    { q: '下列哪种行为属于正当防卫？', o: ['对正在进行的不法侵害进行反击', '事后报复不法侵害者', '预先设伏伤害对方'], c: 0 },
+    { q: '我国法定结婚年龄，男不得早于多少周岁？', o: ['20 周岁', '22 周岁', '24 周岁'], c: 1 }
   ];
 
   const TOTAL_ROUNDS = 4;
@@ -291,11 +376,9 @@
     return a;
   }
 
-  // 每局固定 2 个实习类事件 + 6 个普通事件，保证每条结局路线都能达成
+  // 从事件池随机抽 8 个事件
   function buildEvents() {
-    const intern = shuffle(EVENT_POOL.filter(e => e.intern)).slice(0, 2);
-    const regular = shuffle(EVENT_POOL.filter(e => !e.intern)).slice(0, 6);
-    return shuffle([...intern, ...regular]);
+    return shuffle(EVENT_POOL).slice(0, 8);
   }
 
   // 初始化 / 重新开始
@@ -306,9 +389,15 @@
       intern: 0,
       events: buildEvents(),
       idx: 0,
-      over: false
+      over: false,
+      quizPool: shuffle(QUIZ_POOL),
+      quizIdx: 0,
+      quiz: null
     };
     document.getElementById('end-screen').classList.remove('active');
+    document.getElementById('end-choice').style.display = 'none';
+    document.getElementById('quiz-area').style.display = 'none';
+    document.getElementById('main-buttons').style.display = 'flex';
     document.getElementById('game-area').style.display = 'block';
     renderEvent();
   }
@@ -325,6 +414,8 @@
     result.textContent = '';
     result.classList.remove('show', 'good', 'bad');
 
+    document.getElementById('quiz-area').style.display = 'none';
+    document.getElementById('main-buttons').style.display = 'flex';
     setButtonsEnabled(true);
     updateStats();
   }
@@ -348,9 +439,10 @@
   function setButtonsEnabled(enabled) {
     document.getElementById('btn-go').disabled = !enabled;
     document.getElementById('btn-skip').disabled = !enabled;
+    document.getElementById('btn-intern').disabled = !enabled;
   }
 
-  // 玩家做出选择
+  // 玩家做出选择：go 去上课 / skip 逃课恋爱 / intern 去实习
   function choose(type) {
     if (!state || state.over) return;
     const ev = state.events[state.idx];
@@ -359,14 +451,24 @@
     const result = document.getElementById('result-text');
     if (type === 'go') {
       state.score = Math.min(100, state.score + 10);
-      if (ev.intern) state.intern += 10;
       result.textContent = ev.go;
       result.classList.add('show', 'good');
-    } else {
+      updateStats();
+      bumpScore();
+      // 满分立即结算
+      if (state.score === 100) return endGame('perfect');
+      // 去上课触发课堂提问
+      return startQuiz();
+    } else if (type === 'skip') {
       state.score = Math.max(0, state.score - 10);
       state.affection += 10;
       result.textContent = ev.skip;
       result.classList.add('show', 'bad');
+    } else {
+      state.score = Math.max(0, Math.min(100, state.score + 5));
+      state.intern += 10;
+      result.textContent = ev.intern;
+      result.classList.add('show', 'good');
     }
 
     updateStats();
@@ -376,6 +478,11 @@
     if (state.score === 100) return endGame('perfect');
     if (state.score === 0) return endGame('zero');
 
+    nextEvent();
+  }
+
+  // 进入下一个事件
+  function nextEvent() {
     state.idx++;
     if (state.idx >= state.events.length) {
       return endGame('finish');
@@ -383,22 +490,110 @@
     setTimeout(renderEvent, 1500);
   }
 
+  // 取下一道法考题（用完一轮后重新洗牌）
+  function nextQuizQuestion() {
+    if (state.quizIdx >= state.quizPool.length) {
+      state.quizPool = shuffle(QUIZ_POOL);
+      state.quizIdx = 0;
+    }
+    return state.quizPool[state.quizIdx++];
+  }
+
+  // ===== 课堂提问系统 =====
+
+  // 老师提问：显示题目，玩家选择主动回答或不举手
+  function startQuiz() {
+    const q = nextQuizQuestion();
+    state.quiz = q;
+    document.getElementById('main-buttons').style.display = 'none';
+    document.getElementById('quiz-area').style.display = 'block';
+    document.getElementById('quiz-text').textContent = '🙋 老师突然提问：' + q.q;
+    document.getElementById('quiz-choose-btns').style.display = 'flex';
+    document.getElementById('quiz-answer-btns').style.display = 'none';
+  }
+
+  // 显示 A/B/C 三个选项
+  function showQuizAnswers() {
+    const q = state.quiz;
+    const ids = ['btn-a', 'btn-b', 'btn-c'];
+    const labels = ['A', 'B', 'C'];
+    document.getElementById('quiz-choose-btns').style.display = 'none';
+    document.getElementById('quiz-answer-btns').style.display = 'flex';
+    for (let i = 0; i < 3; i++) {
+      document.getElementById(ids[i]).textContent = labels[i] + '. ' + q.o[i];
+    }
+  }
+
+  // 主动回答
+  function raiseHand() {
+    if (!state.quiz) return;
+    const result = document.getElementById('result-text');
+    result.textContent = '你主动举起了手，大声说出你的答案！';
+    result.classList.remove('good', 'bad');
+    result.classList.add('show');
+    showQuizAnswers();
+  }
+
+  // 不举手：50% 概率被点名
+  function noHand() {
+    if (!state.quiz) return;
+    const result = document.getElementById('result-text');
+    if (Math.random() < 0.5) {
+      result.textContent = '你低下头假装记笔记……结果还是被老师点名了！';
+      result.classList.remove('good', 'bad');
+      result.classList.add('show');
+      showQuizAnswers();
+    } else {
+      result.textContent = '老师没有点你，你松了口气。本节课成绩 +10。';
+      result.classList.add('show', 'good');
+      endQuiz();
+    }
+  }
+
+  // 选择答案：答对成绩加成更多（+20），答错小扣分（净得 +5）
+  function answerQuiz(i) {
+    if (!state.quiz) return;
+    const result = document.getElementById('result-text');
+    if (i === state.quiz.c) {
+      state.score = Math.min(100, state.score + 10);
+      result.textContent = '回答正确！老师赞不绝口，成绩 +20（答对加成更多！）';
+      result.classList.add('show', 'good');
+    } else {
+      state.score = Math.max(0, state.score - 5);
+      result.textContent = '回答错误……同学们窃窃私语，成绩 +5。';
+      result.classList.add('show', 'bad');
+    }
+    endQuiz();
+  }
+
+  // 提问结束，收尾并进入下一事件
+  function endQuiz() {
+    state.quiz = null;
+    document.getElementById('quiz-area').style.display = 'none';
+    document.getElementById('main-buttons').style.display = 'flex';
+    updateStats();
+    bumpScore();
+
+    if (state.score === 100) return endGame('perfect');
+    if (state.score === 0) return endGame('zero');
+
+    nextEvent();
+  }
+
   // 结算：计算达成的结局
   // 💍 结婚：对象好感 ≥ 50；🎓 保研：成绩 ≥ 80；💼 工作：成绩 ≥ 50 且 实习 ≥ 20
+  // 保研与就业互斥：两者条件都满足时，由玩家二选一。
   function endGame(type) {
     state.over = true;
     document.getElementById('game-area').style.display = 'none';
     const screen = document.getElementById('end-screen');
     screen.classList.add('active');
 
-    const endings = [];
-    if (state.affection >= 50) endings.push('💍 与对象结婚！');
-    if (state.score >= 80) endings.push('🎓 成功保研！');
-    if (state.score >= 50 && state.intern >= 20) endings.push('💼 找到工作！');
+    const canBaoYan = state.score >= 80;
+    const canJob = state.score >= 50 && state.intern >= 20;
 
     const emoji = document.getElementById('end-emoji');
     const title = document.getElementById('end-title');
-    const sub = document.getElementById('end-sub');
 
     if (type === 'perfect') {
       emoji.textContent = '🎉';
@@ -411,8 +606,38 @@
       title.textContent = '学期结束！';
     }
 
-    let html =
-      '成绩：<b>' + state.score + '</b> 分 · 对象好感：<b>' + state.affection + '</b> · 实习经验：<b>' + state.intern + '</b>';
+    const choiceBox = document.getElementById('end-choice');
+    const sub = document.getElementById('end-sub');
+    if (canBaoYan && canJob) {
+      // 两条路都满足，等待玩家选择
+      choiceBox.style.display = 'block';
+      sub.innerHTML = statsHtml();
+    } else {
+      choiceBox.style.display = 'none';
+      showFinalEnding(canBaoYan ? 'baoyan' : (canJob ? 'job' : null));
+    }
+  }
+
+  // 玩家在保研与就业之间做出选择
+  function pickEnding(choice) {
+    document.getElementById('end-choice').style.display = 'none';
+    showFinalEnding(choice);
+  }
+
+  // 属性统计文案
+  function statsHtml() {
+    return '成绩：<b>' + state.score + '</b> 分 · 对象好感：<b>' + state.affection + '</b> · 实习经验：<b>' + state.intern + '</b>';
+  }
+
+  // 展示最终结局（保研 / 就业只会二选一）
+  function showFinalEnding(choice) {
+    const endings = [];
+    if (state.affection >= 50) endings.push('💍 与对象结婚！');
+    if (choice === 'baoyan') endings.push('🎓 成功保研！');
+    if (choice === 'job') endings.push('💼 找到工作！');
+
+    const sub = document.getElementById('end-sub');
+    let html = statsHtml();
     if (endings.length > 0) {
       html += '<span class="endings">' +
         endings.map(e => '<span>' + e + '</span>').join('') +
