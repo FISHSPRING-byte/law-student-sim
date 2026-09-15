@@ -511,13 +511,21 @@
     renderEvent();
   }
 
+  // 学期名称：按轮次映射为 大一上 / 大一下 / 大二上 / 大二下 / ...
+  function semesterName(roundIdx) {
+    const nums = ['一', '二', '三', '四', '五', '六'];
+    const year = nums[Math.floor(roundIdx / 2)];
+    const half = roundIdx % 2 === 0 ? '上' : '下';
+    return '大' + year + half;
+  }
+
   // 渲染当前事件：根据事件内容动态生成选项按钮
   function renderEvent() {
     const ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
     document.getElementById('event-text').textContent = ev.text;
     document.getElementById('progress').textContent = state.introDone
-      ? '第 ' + (Math.floor(state.idx / EVENTS_PER_ROUND) + 1) + ' / ' + TOTAL_ROUNDS +
-        ' 学期 · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND
+      ? semesterName(Math.floor(state.idx / EVENTS_PER_ROUND)) +
+        ' · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND
       : '开学';
 
     const result = document.getElementById('result-text');
