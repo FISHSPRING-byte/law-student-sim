@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>法学生模拟器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 520px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  }
+
+  h1 { font-size: 28px; color: #333; }
+  .subtitle { color: #999; font-size: 14px; margin-top: 6px; }
+
+  /* 成绩与好感统计 */
+  .stats {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 22px 0 10px;
+  }
+  .stat-box {
+    flex: 1;
+    background: #f5f6fa;
+    border-radius: 14px;
+    padding: 14px 8px;
+  }
+  .stat-label { font-size: 13px; color: #888; }
+  .stat-value {
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 4px;
+    transition: transform 0.2s;
+  }
+  .stat-value.score { color: #5a67d8; }
+  .stat-value.love { color: #e0538a; }
+  .stat-value.intern { color: #f59f00; }
+  .stat-value.bump { animation: bump 0.35s ease; }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+
+  .progress { color: #aaa; font-size: 13px; margin-bottom: 18px; }
+
+  /* 事件区域 */
+  .event-text {
+    font-size: 20px;
+    color: #444;
+    line-height: 1.6;
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .result-text {
+    font-size: 15px;
+    min-height: 24px;
+    margin-bottom: 16px;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .result-text.show { opacity: 1; }
+  .result-text.good { color: #2f9e44; }
+  .result-text.bad { color: #e8590c; }
+
+  /* 按钮 */
+  .buttons { display: flex; gap: 14px; }
+  .btn {
+    flex: 1;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  }
+  .btn-go {
+    background: linear-gradient(135deg, #667eea, #5a67d8);
+    box-shadow: 0 6px 16px rgba(90, 103, 216, 0.35);
+  }
+  .btn-skip {
+    background: linear-gradient(135deg, #f783ac, #e0538a);
+    box-shadow: 0 6px 16px rgba(224, 83, 138, 0.35);
+  }
+  .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+  }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { filter: grayscale(0.5) opacity(0.55); cursor: not-allowed; }
+
+  /* 结算界面 */
+  .end-screen { display: none; }
+  .end-screen.active { display: block; animation: fadeIn 0.5s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .end-emoji { font-size: 56px; }
+  .end-title { font-size: 24px; font-weight: 700; color: #333; margin: 10px 0 6px; }
+  .end-sub { color: #777; font-size: 15px; line-height: 1.7; margin-bottom: 18px; }
+  .endings {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .endings span {
+    background: #f5f6fa;
+    border: 1px solid #e9ecf5;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 14px;
+    color: #444;
+  }
+  .bad-ending { color: #c92a2a; font-weight: 600; margin-top: 12px; }
+
+  /* 重新开始按钮 */
+  .btn-restart {
+    display: block;
+    margin: 22px auto 0;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 36px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(135deg, #51cf66, #2f9e44);
+    box-shadow: 0 6px 16px rgba(47, 158, 68, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-restart:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+  }
+  .btn-restart.subtle {
+    background: transparent;
+    color: #999;
+    box-shadow: none;
+    font-size: 13px;
+    padding: 8px 20px;
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚖️ 法学生模拟器</h1>
+    <p class="subtitle">读万卷书，行万里路——或者逃课去恋爱？</p>
+
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-label">📊 当前成绩</div>
+        <div class="stat-value score" id="score">--</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">💕 对象好感</div>
+        <div class="stat-value love" id="affection">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">💼 实习经验</div>
+        <div class="stat-value intern" id="intern">0</div>
+      </div>
+    </div>
+
+    <p class="progress" id="progress"></p>
+
+    <!-- 游戏进行中 -->
+    <div id="game-area">
+      <p class="event-text" id="event-text"></p>
+      <p class="result-text" id="result-text"></p>
+      <div class="buttons">
+        <button class="btn btn-go" id="btn-go" onclick="choose('go')">📖 去上课</button>
+        <button class="btn btn-skip" id="btn-skip" onclick="choose('skip')">💕 逃课恋爱</button>
+      </div>
+      <button class="btn-restart subtle" onclick="initGame()">↻ 重新开始</button>
+    </div>
+
+    <!-- 结算界面 -->
+    <div class="end-screen" id="end-screen">
+      <div class="end-emoji" id="end-emoji"></div>
+      <div class="end-title" id="end-title"></div>
+      <p class="end-sub" id="end-sub"></p>
+      <button class="btn-restart" onclick="initGame()">↻ 重新开始</button>
+    </div>
+  </div>
+
+<script>
+  // 事件池：每一轮随机依次出现两个事件，共 4 轮 8 个事件。
+  // 标记 intern 的事件为实习类事件，选择"去上课"可额外获得实习经验。
+  const EVENT_POOL = [
+    {
+      text: '民法课点名，你去不去？',
+      go: '你冲进教室坐进前排，还答对了教授的提问！成绩 +10',
+      skip: '你和对象在咖啡馆度过了一下午，成绩下滑……成绩 -10，对象好感 +10'
+    },
+    {
+      text: '刑法案例研讨会，教授要抽人分析案情，你留不留？',
+      go: '你条理清晰地分析了共同犯罪问题，赢得一片掌声！成绩 +10',
+      skip: '你偷偷溜走和对象看了一场电影。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '法律文书写作作业今晚截止，你写不写？',
+      go: '你挑灯夜战按时交上作业，老师给了好评！成绩 +10',
+      skip: '你陪对象逛街到深夜，作业忘得一干二净。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '模拟法庭辩论队今晚集训，你去不去？',
+      go: '你在模拟法庭上慷慨陈词，队友都为你鼓掌！成绩 +10',
+      skip: '你和对象去吃了顿火锅，辩论技巧没练成。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '导师安排你去法院整理卷宗，你去不去？',
+      intern: true,
+      go: '你在卷宗堆里泡了一天，实务经验大涨！成绩 +10，实习经验 +10',
+      skip: '你借口头疼，和对象去公园划船了。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '宪法学讲座正在开讲，你去听吗？',
+      go: '你认真记了满满三页笔记，对宪法理解更深刻了！成绩 +10',
+      skip: '你和对象窝在宿舍追剧，讲座完全没听。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '图书馆期末自习打卡，你去不去？',
+      go: '你在图书馆复习了一整天，效率超高！成绩 +10',
+      skip: '你和对象骑车兜风，享受了大好春光。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '法律援助中心周末值班，你去不去？',
+      intern: true,
+      go: '你帮一位大爷写了起诉状，成就感满满！成绩 +10，实习经验 +10',
+      skip: '你和对象去逛了展，值班名单上没你的名字。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '律所暑期实习面试，你去不去？',
+      intern: true,
+      go: '你顺利通过面试，拿到了律所实习 offer！成绩 +10，实习经验 +10',
+      skip: '你和对象去水上乐园玩了一整天，错过了面试。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '法考辅导班冲刺课，你去不去？',
+      go: '你刷完了一套真题，正确率创新高！成绩 +10',
+      skip: '你和对象在奶茶店打了一下午游戏。成绩 -10，对象好感 +10'
+    },
+    {
+      text: '班级法学读书会分享，你参加吗？',
+      go: '你分享了对《论法的精神》的见解，同学刮目相看！成绩 +10',
+      skip: '你和对象去了livehouse，读书会现场缺了你。成绩 -10，对象好感 +10'
+    }
+  ];
+
+  const TOTAL_ROUNDS = 4;
+  const EVENTS_PER_ROUND = 2;
+  const TOTAL_EVENTS = TOTAL_ROUNDS * EVENTS_PER_ROUND;
+
+  let state = null;
+
+  // 洗牌
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // 每局固定 2 个实习类事件 + 6 个普通事件，保证每条结局路线都能达成
+  function buildEvents() {
+    const intern = shuffle(EVENT_POOL.filter(e => e.intern)).slice(0, 2);
+    const regular = shuffle(EVENT_POOL.filter(e => !e.intern)).slice(0, 6);
+    return shuffle([...intern, ...regular]);
+  }
+
+  // 初始化 / 重新开始
+  function initGame() {
+    state = {
+      score: 30 + Math.floor(Math.random() * 51), // 初始成绩随机 30~80
+      affection: 0,
+      intern: 0,
+      events: buildEvents(),
+      idx: 0,
+      over: false
+    };
+    document.getElementById('end-screen').classList.remove('active');
+    document.getElementById('game-area').style.display = 'block';
+    renderEvent();
+  }
+
+  // 渲染当前事件
+  function renderEvent() {
+    const ev = state.events[state.idx];
+    document.getElementById('event-text').textContent = ev.text;
+    document.getElementById('progress').textContent =
+      '第 ' + (Math.floor(state.idx / EVENTS_PER_ROUND) + 1) + ' / ' + TOTAL_ROUNDS +
+      ' 轮 · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND;
+
+    const result = document.getElementById('result-text');
+    result.textContent = '';
+    result.classList.remove('show', 'good', 'bad');
+
+    setButtonsEnabled(true);
+    updateStats();
+  }
+
+  // 更新成绩、好感与实习显示（成绩限制在 0~100）
+  function updateStats() {
+    state.score = Math.max(0, Math.min(100, state.score));
+    document.getElementById('score').textContent = state.score;
+    document.getElementById('affection').textContent = state.affection;
+    document.getElementById('intern').textContent = state.intern;
+  }
+
+  // 数字跳动动画
+  function bumpScore() {
+    const el = document.getElementById('score');
+    el.classList.remove('bump');
+    void el.offsetWidth; // 重启动画
+    el.classList.add('bump');
+  }
+
+  function setButtonsEnabled(enabled) {
+    document.getElementById('btn-go').disabled = !enabled;
+    document.getElementById('btn-skip').disabled = !enabled;
+  }
+
+  // 玩家做出选择
+  function choose(type) {
+    if (!state || state.over) return;
+    const ev = state.events[state.idx];
+    setButtonsEnabled(false);
+
+    const result = document.getElementById('result-text');
+    if (type === 'go') {
+      state.score = Math.min(100, state.score + 10);
+      if (ev.intern) state.intern += 10;
+      result.textContent = ev.go;
+      result.classList.add('show', 'good');
+    } else {
+      state.score = Math.max(0, state.score - 10);
+      state.affection += 10;
+      result.textContent = ev.skip;
+      result.classList.add('show', 'bad');
+    }
+
+    updateStats();
+    bumpScore();
+
+    // 满分 / 零分立即结算
+    if (state.score === 100) return endGame('perfect');
+    if (state.score === 0) return endGame('zero');
+
+    state.idx++;
+    if (state.idx >= state.events.length) {
+      return endGame('finish');
+    }
+    setTimeout(renderEvent, 1500);
+  }
+
+  // 结算：计算达成的结局
+  // 💍 结婚：对象好感 ≥ 50；🎓 保研：成绩 ≥ 80；💼 工作：成绩 ≥ 50 且 实习 ≥ 20
+  function endGame(type) {
+    state.over = true;
+    document.getElementById('game-area').style.display = 'none';
+    const screen = document.getElementById('end-screen');
+    screen.classList.add('active');
+
+    const endings = [];
+    if (state.affection >= 50) endings.push('💍 与对象结婚！');
+    if (state.score >= 80) endings.push('🎓 成功保研！');
+    if (state.score >= 50 && state.intern >= 20) endings.push('💼 找到工作！');
+
+    const emoji = document.getElementById('end-emoji');
+    const title = document.getElementById('end-title');
+    const sub = document.getElementById('end-sub');
+
+    if (type === 'perfect') {
+      emoji.textContent = '🎉';
+      title.textContent = '满分！你已经是法学大神了！';
+    } else if (type === 'zero') {
+      emoji.textContent = '😭';
+      title.textContent = '零分！你需要好好反思一下了...';
+    } else {
+      emoji.textContent = '📜';
+      title.textContent = '学期结束！';
+    }
+
+    let html =
+      '成绩：<b>' + state.score + '</b> 分 · 对象好感：<b>' + state.affection + '</b> · 实习经验：<b>' + state.intern + '</b>';
+    if (endings.length > 0) {
+      html += '<span class="endings">' +
+        endings.map(e => '<span>' + e + '</span>').join('') +
+        '</span>';
+    } else {
+      html += '<p class="bad-ending">😢 坏结局：成绩一般、感情无果、实习泡汤，毕业即失业！</p>';
+    }
+    sub.innerHTML = html;
+  }
+
+  initGame();
+</script>
+</body>
+</html>
