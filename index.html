@@ -2,13 +2,14 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>法学生模拟器</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
     min-height: 100vh;
+    min-height: -webkit-fill-available;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -27,15 +28,24 @@
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   }
 
+  /* 用 margin 实现间距，兼容不支持 flex gap 的旧版手机浏览器 */
+  .stats { margin-left: -6px; margin-right: -6px; }
+  .stat-box { margin: 0 6px; }
+  .buttons { margin-left: -7px; margin-right: -7px; }
+  .buttons .btn { margin: 0 7px; }
+  .buttons.column { margin-left: 0; margin-right: 0; }
+  .buttons.column .btn { margin: 0 0 10px; }
+  .endings { margin-left: -4px; margin-right: -4px; }
+  .endings span { margin: 4px; }
+
   h1 { font-size: 28px; color: #333; }
   .subtitle { color: #999; font-size: 14px; margin-top: 6px; }
 
   /* 成绩与好感统计 */
   .stats {
     display: flex;
-    gap: 12px;
     justify-content: center;
-    margin: 22px 0 10px;
+    margin: 22px -6px 10px;
   }
   .stat-box {
     flex: 1;
@@ -48,13 +58,19 @@
     font-size: 26px;
     font-weight: 700;
     margin-top: 4px;
+    -webkit-transition: -webkit-transform 0.2s;
     transition: transform 0.2s;
   }
   .stat-value.score { color: #5a67d8; }
   .stat-value.love { color: #e0538a; }
   .stat-value.intern { color: #f59f00; }
   .stat-value.stress { color: #7048e8; }
-  .stat-value.bump { animation: bump 0.35s ease; }
+  .stat-value.bump { -webkit-animation: bump 0.35s ease; animation: bump 0.35s ease; }
+  @-webkit-keyframes bump {
+    0% { -webkit-transform: scale(1); transform: scale(1); }
+    50% { -webkit-transform: scale(1.25); transform: scale(1.25); }
+    100% { -webkit-transform: scale(1); transform: scale(1); }
+  }
   @keyframes bump {
     0% { transform: scale(1); }
     50% { transform: scale(1.25); }
@@ -87,7 +103,7 @@
   .result-text.bad { color: #e8590c; }
 
   /* 按钮 */
-  .buttons { display: flex; gap: 14px; }
+  .buttons { display: flex; }
   .btn {
     flex: 1;
     border: none;
@@ -97,6 +113,9 @@
     font-weight: 600;
     color: #fff;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-transition: -webkit-transform 0.15s, box-shadow 0.15s, -webkit-filter 0.15s;
     transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
   }
   .btn-go {
@@ -145,15 +164,20 @@
     margin-bottom: 14px;
   }
   .btn:hover {
+    -webkit-transform: translateY(-3px);
     transform: translateY(-3px);
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
   }
-  .btn:active { transform: translateY(0); }
+  .btn:active { -webkit-transform: translateY(0); transform: translateY(0); }
   .btn:disabled { filter: grayscale(0.5) opacity(0.55); cursor: not-allowed; }
 
   /* 结算界面 */
   .end-screen { display: none; }
-  .end-screen.active { display: block; animation: fadeIn 0.5s ease; }
+  .end-screen.active { display: block; -webkit-animation: fadeIn 0.5s ease; animation: fadeIn 0.5s ease; }
+  @-webkit-keyframes fadeIn {
+    from { opacity: 0; -webkit-transform: translateY(10px); transform: translateY(10px); }
+    to { opacity: 1; -webkit-transform: translateY(0); transform: translateY(0); }
+  }
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -165,7 +189,6 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
     margin-top: 14px;
   }
   .endings span {
@@ -191,9 +214,13 @@
     cursor: pointer;
     background: linear-gradient(135deg, #51cf66, #2f9e44);
     box-shadow: 0 6px 16px rgba(47, 158, 68, 0.35);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-transition: -webkit-transform 0.15s, box-shadow 0.15s;
     transition: transform 0.15s, box-shadow 0.15s;
   }
   .btn-restart:hover {
+    -webkit-transform: translateY(-3px);
     transform: translateY(-3px);
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
   }
@@ -204,6 +231,40 @@
     font-size: 13px;
     padding: 8px 20px;
     margin-top: 14px;
+  }
+
+  @media (max-width: 600px) {
+    body {
+      align-items: flex-start;
+      padding: 12px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    .card {
+      width: 100%;
+      max-width: 100%;
+      padding: 24px 18px 20px;
+      border-radius: 16px;
+    }
+    h1 { font-size: 24px; }
+    .subtitle { font-size: 13px; line-height: 1.6; }
+    .stats { display: flex; flex-wrap: wrap; margin: 18px -4px 10px; }
+    .stat-box { flex: 1 1 calc(50% - 8px); margin: 4px; padding: 11px 6px; }
+    .stat-label { font-size: 12px; }
+    .stat-value { font-size: 23px; }
+    .event-text { font-size: 18px; min-height: 0; margin-bottom: 16px; }
+    .buttons:not(.column) { flex-direction: column; margin-left: 0; margin-right: 0; }
+    .buttons:not(.column) .btn { width: 100%; min-height: 46px; margin: 0; }
+    .buttons:not(.column) .btn + .btn { margin-top: 10px; }
+    .buttons.column .btn { min-height: 46px; padding: 12px 14px; }
+    .quiz-text { font-size: 16px; }
+    .end-emoji { font-size: 48px; }
+    .end-title { font-size: 21px; }
+  }
+
+  @media (max-width: 360px) {
+    body { padding-left: 8px; padding-right: 8px; }
+    .card { padding-left: 14px; padding-right: 14px; }
   }
 </style>
 </head>
@@ -277,8 +338,8 @@
   </div>
 
 <script>
-  // 开学剧情：固定出现在每局最开头，不计入 8 个随机事件
-  const INTRO_EVENT = {
+  // 开学剧情：固定出现在每局最开头，不计入 16 个随机事件
+  var INTRO_EVENT = {
     text: '开学第一天，你拖着行李箱站在法学院门口。你为什么要学法律？',
     options: [
       { text: '为了捍卫公平正义！', result: '你立志成为顶尖律师，心中燃起理想的火焰。', score: 10, stress: 15 },
@@ -287,10 +348,10 @@
     ]
   };
 
-  // 事件池：共 20 个事件，每局随机抽 8 个，共 4 轮 8 个事件（每学期两次选择）。
+  // 事件池：共 20 个事件，每局随机抽 16 个，共 8 个学期（每学期两个回合）。
   // 每个事件的选项数量和内容各不相同，选项字段：
   // text 按钮文案 / result 结果文案 / score、affection、intern、stress 属性变化 / quiz 触发课堂提问
-  const EVENT_POOL = [
+  var EVENT_POOL = [
     {
       text: '民法课点名，你去不去？',
       options: [
@@ -454,7 +515,7 @@
   ];
 
   // 法考题库：上课时老师随机提问，o 为三个选项，c 为正确答案下标
-  const QUIZ_POOL = [
+  var QUIZ_POOL = [
     { q: '我国现行宪法是哪一年颁布的？', o: ['1954 年', '1978 年', '1982 年'], c: 2 },
     { q: '我国《民法典》自哪一年起施行？', o: ['2020 年', '2021 年', '2022 年'], c: 1 },
     { q: '下列哪一项属于民法上的"无因管理"？', o: ['拾得遗失物', '无义务为他人管理事务', '向他人赠与财产'], c: 1 },
@@ -467,25 +528,27 @@
     { q: '我国法定结婚年龄，男不得早于多少周岁？', o: ['20 周岁', '22 周岁', '24 周岁'], c: 1 }
   ];
 
-  const TOTAL_ROUNDS = 4;
-  const EVENTS_PER_ROUND = 2;
-  const TOTAL_EVENTS = TOTAL_ROUNDS * EVENTS_PER_ROUND;
+  var TOTAL_ROUNDS = 8; // 8 个学期：大一上 ~ 大四下
+  var EVENTS_PER_ROUND = 2; // 每学期两个回合
+  var TOTAL_EVENTS = TOTAL_ROUNDS * EVENTS_PER_ROUND; // 共 16 个选择
 
-  let state = null;
+  var state = null;
 
   // 洗牌
   function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = a[i];
+      a[i] = a[j];
+      a[j] = temp;
     }
     return a;
   }
 
-  // 从 20 个事件池随机抽 8 个事件
+  // 从 20 个事件池随机抽 16 个事件（8 个学期 × 每学期 2 个）
   function buildEvents() {
-    return shuffle(EVENT_POOL).slice(0, 8);
+    return shuffle(EVENT_POOL).slice(0, TOTAL_EVENTS);
   }
 
   // 初始化 / 重新开始
@@ -513,29 +576,31 @@
 
   // 学期名称：按轮次映射为 大一上 / 大一下 / 大二上 / 大二下 / ...
   function semesterName(roundIdx) {
-    const nums = ['一', '二', '三', '四', '五', '六'];
-    const year = nums[Math.floor(roundIdx / 2)];
-    const half = roundIdx % 2 === 0 ? '上' : '下';
+    var nums = ['一', '二', '三', '四', '五', '六'];
+    var year = nums[Math.floor(roundIdx / 2)];
+    var half = roundIdx % 2 === 0 ? '上' : '下';
     return '大' + year + half;
   }
 
   // 渲染当前事件：根据事件内容动态生成选项按钮
   function renderEvent() {
-    const ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
+    var ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
     document.getElementById('event-text').textContent = ev.text;
     document.getElementById('progress').textContent = state.introDone
       ? semesterName(Math.floor(state.idx / EVENTS_PER_ROUND)) +
-        ' · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND
+        (EVENTS_PER_ROUND > 1
+          ? ' · 事件 ' + (state.idx % EVENTS_PER_ROUND + 1) + ' / ' + EVENTS_PER_ROUND
+          : '')
       : '开学';
 
-    const result = document.getElementById('result-text');
+    var result = document.getElementById('result-text');
     result.textContent = '';
     result.classList.remove('show', 'good', 'bad');
 
-    const box = document.getElementById('option-buttons');
+    var box = document.getElementById('option-buttons');
     box.innerHTML = '';
-    ev.options.forEach((opt, i) => {
-      const btn = document.createElement('button');
+    ev.options.forEach(function (opt, i) {
+      var btn = document.createElement('button');
       btn.className = 'btn ' + optionBtnClass(opt);
       btn.textContent = opt.text;
       btn.onclick = function () { choose(i); };
@@ -558,7 +623,7 @@
 
   // 数字跳动动画
   function bumpStat(id) {
-    const el = document.getElementById(id);
+    var el = document.getElementById(id);
     el.classList.remove('bump');
     void el.offsetWidth; // 重启动画
     el.classList.add('bump');
@@ -566,7 +631,7 @@
 
   // 根据选项效果自动生成属性变化后缀
   function effectText(opt) {
-    const parts = [];
+    var parts = [];
     if (opt.score) parts.push('成绩 ' + (opt.score > 0 ? '+' : '') + opt.score);
     if (opt.affection) parts.push('好感 ' + (opt.affection > 0 ? '+' : '') + opt.affection);
     if (opt.intern) parts.push('实习 ' + (opt.intern > 0 ? '+' : '') + opt.intern);
@@ -586,12 +651,14 @@
   // 玩家选择某个选项（选项由事件内容动态生成）
   function choose(i) {
     if (!state || state.over) return;
-    const ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
-    const opt = ev.options[i];
+    var ev = state.introDone ? state.events[state.idx] : INTRO_EVENT;
+    var opt = ev.options[i];
 
-    // 禁用选项按钮防止连点
-    document.getElementById('option-buttons').querySelectorAll('button')
-      .forEach(b => { b.disabled = true; });
+    // 禁用选项按钮防止连点（不用 NodeList.forEach，旧手机浏览器不支持）
+    var btns = document.getElementById('option-buttons').querySelectorAll('button');
+    for (var k = 0; k < btns.length; k++) {
+      btns[k].disabled = true;
+    }
 
     // 应用属性变化
     state.score = Math.max(0, Math.min(100, state.score + (opt.score || 0)));
@@ -599,9 +666,9 @@
     state.intern = Math.max(0, state.intern + (opt.intern || 0));
     state.stress = Math.max(0, state.stress + (opt.stress || 0));
 
-    const result = document.getElementById('result-text');
+    var result = document.getElementById('result-text');
     result.textContent = opt.result + effectText(opt);
-    const bad = (opt.score || 0) < 0 || (opt.affection || 0) < 0;
+    var bad = (opt.score || 0) < 0 || (opt.affection || 0) < 0;
     result.classList.add('show', bad ? 'bad' : 'good');
 
     updateStats();
@@ -648,7 +715,7 @@
 
   // 老师提问：显示题目，玩家选择主动回答或不举手
   function startQuiz() {
-    const q = nextQuizQuestion();
+    var q = nextQuizQuestion();
     state.quiz = q;
     document.getElementById('option-buttons').style.display = 'none';
     document.getElementById('quiz-area').style.display = 'block';
@@ -659,12 +726,12 @@
 
   // 显示 A/B/C 三个选项
   function showQuizAnswers() {
-    const q = state.quiz;
-    const ids = ['btn-a', 'btn-b', 'btn-c'];
-    const labels = ['A', 'B', 'C'];
+    var q = state.quiz;
+    var ids = ['btn-a', 'btn-b', 'btn-c'];
+    var labels = ['A', 'B', 'C'];
     document.getElementById('quiz-choose-btns').style.display = 'none';
     document.getElementById('quiz-answer-btns').style.display = 'flex';
-    for (let i = 0; i < 3; i++) {
+    for (var i = 0; i < 3; i++) {
       document.getElementById(ids[i]).textContent = labels[i] + '. ' + q.o[i];
     }
   }
@@ -672,7 +739,7 @@
   // 主动回答
   function raiseHand() {
     if (!state.quiz) return;
-    const result = document.getElementById('result-text');
+    var result = document.getElementById('result-text');
     result.textContent = '你主动举起了手，大声说出你的答案！';
     result.classList.remove('good', 'bad');
     result.classList.add('show');
@@ -682,7 +749,7 @@
   // 不举手：50% 概率被点名
   function noHand() {
     if (!state.quiz) return;
-    const result = document.getElementById('result-text');
+    var result = document.getElementById('result-text');
     if (Math.random() < 0.5) {
       result.textContent = '你低下头假装记笔记……结果还是被老师点名了！';
       result.classList.remove('good', 'bad');
@@ -698,7 +765,7 @@
   // 选择答案：答对成绩额外加成，答错小扣分并增加压力
   function answerQuiz(i) {
     if (!state.quiz) return;
-    const result = document.getElementById('result-text');
+    var result = document.getElementById('result-text');
     if (i === state.quiz.c) {
       state.score = Math.min(100, state.score + 6);
       result.textContent = '回答正确！老师赞不绝口，成绩额外 +6！';
@@ -734,12 +801,12 @@
   function endGame(type) {
     state.over = true;
     document.getElementById('game-area').style.display = 'none';
-    const screen = document.getElementById('end-screen');
+    var screen = document.getElementById('end-screen');
     screen.classList.add('active');
 
-    const emoji = document.getElementById('end-emoji');
-    const title = document.getElementById('end-title');
-    const sub = document.getElementById('end-sub');
+    var emoji = document.getElementById('end-emoji');
+    var title = document.getElementById('end-title');
+    var sub = document.getElementById('end-sub');
     document.getElementById('end-choice').style.display = 'none';
 
     // 压力爆表：特殊坏结局
@@ -747,12 +814,12 @@
       emoji.textContent = '🤯';
       title.textContent = '压力爆表！你被压垮了……';
       sub.innerHTML = statsHtml() +
-        '<p class="bad-ending">😵 压力达到 100，学期还没结束你就撑不住了。好好休息，别把自己逼太紧！</p>';
+        '<p class="bad-ending">😵 压力达到 100，还没毕业你就撑不住了。好好休息，别把自己逼太紧！</p>';
       return;
     }
 
-    const canBaoYan = state.score >= 80;
-    const canJob = state.score >= 50 && state.intern >= 20;
+    var canBaoYan = state.score >= 80;
+    var canJob = state.score >= 50 && state.intern >= 20;
 
     if (type === 'perfect') {
       emoji.textContent = '🎉';
@@ -761,11 +828,11 @@
       emoji.textContent = '😭';
       title.textContent = '零分！你需要好好反思一下了...';
     } else {
-      emoji.textContent = '📜';
-      title.textContent = '学期结束！';
+      emoji.textContent = '🎓';
+      title.textContent = '毕业啦！';
     }
 
-    const choiceBox = document.getElementById('end-choice');
+    var choiceBox = document.getElementById('end-choice');
     if (canBaoYan && canJob) {
       // 两条路都满足，等待玩家选择
       choiceBox.style.display = 'block';
@@ -788,16 +855,16 @@
 
   // 展示最终结局（保研 / 就业只会二选一）
   function showFinalEnding(choice) {
-    const endings = [];
+    var endings = [];
     if (state.affection >= 50) endings.push('💍 与对象结婚！');
     if (choice === 'baoyan') endings.push('🎓 成功保研！');
     if (choice === 'job') endings.push('💼 找到工作！');
 
-    const sub = document.getElementById('end-sub');
-    let html = statsHtml();
+    var sub = document.getElementById('end-sub');
+    var html = statsHtml();
     if (endings.length > 0) {
       html += '<span class="endings">' +
-        endings.map(e => '<span>' + e + '</span>').join('') +
+        endings.map(function (e) { return '<span>' + e + '</span>'; }).join('') +
         '</span>';
     } else {
       html += '<p class="bad-ending">😢 坏结局：成绩一般、感情无果、实习泡汤，毕业即失业！</p>';
